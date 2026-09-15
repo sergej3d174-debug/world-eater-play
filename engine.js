@@ -1,5 +1,6 @@
 (function(root){
   'use strict';
+  const C=typeof module!=='undefined'&&module.exports?require('./content.js'):root.EvolutionContent;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), TAU=Math.PI*2;
   const FORMS=[
     {level:1,name:'Капля жизни',title:'Всё начинается с малого',radius:12,color:'#70e5ce',realm:0,body:'blob',description:'Трава выше тебя. Но даже самый большой хищник когда-то был маленьким.'},
@@ -28,12 +29,12 @@
     {id:'fox',level:80,name:'Искра',role:'Огненный лис',color:'#ffb28b',body:'fox',description:'Маленький хищник атакует вместе с тобой и становится сильнее с каждым уровнем.',power:.48},
     {id:'rock',level:400,name:'Гром',role:'Каменный голем',color:'#b3cbe0',body:'titan',description:'Крушит врагов и усиливает защиту героя на 15%.',power:.55},
     {id:'dragon',level:1800,name:'Астра',role:'Небесный дракон',color:'#c4aeff',body:'dragon',description:'Атакует на большой дистанции звёздными разрядами.',power:.7},
-    {id:'star',level:6500,name:'Нова',role:'Звёздный кит',color:'#a9e5f0',body:'cosmic',description:'Твой спутник на охоте за солнцами. Усиливает получение опыта на 20%.',power:.85}
+    {id:'star',level:6500,name:'Нова',role:'Дитя звёзд',color:'#a9e5f0',body:'void',description:'Твой спутник на охоте за солнцами. Усиливает получение опыта на 20%.',power:.85}
   ];
   const BOSSES=[
     {id:'frog',name:'Бульк, хозяин пруда',level:18,body:'frog',color:'#88bd67',realm:0,pet:'wisp'},
     {id:'warden',name:'Страж древней рощи',level:120,body:'treant',color:'#b8b786',realm:1,pet:'fox'},
-    {id:'golem',name:'Каменный исполин',level:650,body:'titan',color:'#b1b6c8',realm:2,pet:'rock'},
+    {id:'golem',name:'Вулканический дракон',level:650,body:'titan',color:'#b1b6c8',realm:2,pet:'rock'},
     {id:'leviathan',name:'Тот, кто несёт острова',level:2600,body:'dragon',color:'#b6dfe2',realm:3,pet:'dragon'},
     {id:'sun',name:'Угасающее солнце',level:8500,body:'cosmic',color:'#ffcf7d',realm:4,pet:'star'},
     {id:'heart',name:'Сердце вселенной',level:10000,body:'cosmic',color:'#ffafdf',realm:5,pet:null}
@@ -41,14 +42,14 @@
   const skills=[{id:'dash',key:'ПРОБЕЛ',name:'Рывок',level:10,cooldown:3},{id:'nova',key:'Q',name:'Волна силы',level:30,cooldown:5},{id:'storm',key:'E',name:'Звёздный гром',level:200,cooldown:7},{id:'devour',key:'R',name:'Поглощение',level:1000,cooldown:9}];
   function formIndex(level){let i=0;while(i<FORMS.length-1&&level>=FORMS[i+1].level)i++;return i;}
   function radiusAt(level){const i=formIndex(level),a=FORMS[i],b=FORMS[Math.min(i+1,FORMS.length-1)];if(a===b)return a.radius;const t=clamp((level-a.level)/(b.level-a.level),0,1);return a.radius*Math.pow(b.radius/a.radius,t);}
-  function xpNeeded(level){return 20+level*.24;}
+  function xpNeeded(level){return (20+level*.24)*1.55;}
   function random(seed){let x=seed>>>0;return()=>{x+=0x6D2B79F5;let t=Math.imul(x^x>>>15,1|x);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296;};}
-  function newSave(ascensions=0){return {version:2,level:1,xp:0,kills:0,essence:0,time:0,traits:{power:0,growth:0,vitality:0},pets:[],activePets:[],bosses:[],choices:0,seed:Date.now(),ascensions:clamp(ascensions,0,50),won:false};}
-  function validSave(s){return !!(s&&s.version===2&&Number.isInteger(s.level)&&s.level>=1&&s.level<=10000&&Number.isFinite(s.xp)&&s.xp>=0&&s.xp<xpNeeded(s.level)+.001&&Number.isInteger(s.kills)&&s.kills>=0&&Number.isFinite(s.essence)&&s.essence>=0&&Number.isFinite(s.time)&&s.time>=0&&s.traits&&['power','growth','vitality'].every(k=>Number.isInteger(s.traits[k])&&s.traits[k]>=0&&s.traits[k]<=100)&&Array.isArray(s.pets)&&s.pets.every(id=>PETS.some(p=>p.id===id))&&new Set(s.pets).size===s.pets.length&&Array.isArray(s.activePets)&&s.activePets.length<=3&&new Set(s.activePets).size===s.activePets.length&&s.activePets.every(id=>s.pets.includes(id))&&Array.isArray(s.bosses)&&s.bosses.every(id=>BOSSES.some(b=>b.id===id))&&Number.isInteger(s.choices)&&s.choices>=0&&s.choices<=11&&Number.isFinite(s.seed)&&Number.isInteger(s.ascensions)&&s.ascensions>=0&&s.ascensions<=50&&typeof s.won==='boolean');}
-  function stats(s){const protection=s.activePets.includes('rock')?.85:1;return {hp:(80+s.level*7)*(1+s.traits.vitality*.2),damage:(9+s.level*1.1)*(1+s.traits.power*.16),xp:1+s.traits.growth*.15+Math.min(s.ascensions,5)*.2+(s.activePets.includes('star')?.2:0),protection};}
+  function newSave(ascensions=0,hero='dragon'){return {version:3,hero:C.hero(hero).id,level:1,xp:0,kills:0,essence:0,time:0,traits:{power:0,growth:0,vitality:0},pets:[],activePets:[],bosses:[],choices:0,seed:Date.now(),ascensions:clamp(ascensions,0,50),won:false};}
+  function validSave(s){return !!(s&&[2,3].includes(s.version)&&(s.hero===undefined||C.HEROES.some(h=>h.id===s.hero))&&Number.isInteger(s.level)&&s.level>=1&&s.level<=10000&&Number.isFinite(s.xp)&&s.xp>=0&&s.xp<xpNeeded(s.level)+.001&&Number.isInteger(s.kills)&&s.kills>=0&&Number.isFinite(s.essence)&&s.essence>=0&&Number.isFinite(s.time)&&s.time>=0&&s.traits&&['power','growth','vitality'].every(k=>Number.isInteger(s.traits[k])&&s.traits[k]>=0&&s.traits[k]<=100)&&Array.isArray(s.pets)&&s.pets.every(id=>PETS.some(p=>p.id===id))&&new Set(s.pets).size===s.pets.length&&Array.isArray(s.activePets)&&s.activePets.length<=3&&new Set(s.activePets).size===s.activePets.length&&s.activePets.every(id=>s.pets.includes(id))&&Array.isArray(s.bosses)&&s.bosses.every(id=>BOSSES.some(b=>b.id===id))&&Number.isInteger(s.choices)&&s.choices>=0&&s.choices<=11&&Number.isFinite(s.seed)&&Number.isInteger(s.ascensions)&&s.ascensions>=0&&s.ascensions<=50&&typeof s.won==='boolean');}
+  function stats(s){const h=C.hero(s),protection=s.activePets.includes('rock')?.85:1;return {hp:(80+s.level*7)*(1+s.traits.vitality*.2)*h.hp,damage:(9+s.level*1.1)*(1+s.traits.power*.16)*h.damage,xp:1+(s.microComplete?.1:0)+s.traits.growth*.15+Math.min(s.ascensions,5)*.2+(s.activePets.includes('star')?.2:0),protection};}
   class World{
     constructor(save){
-      this.save=save;this.rng=random(save.seed+save.level*29);this.time=0;this.id=0;this.player={x:0,y:0,r:radiusAt(save.level),hp:stats(save).hp,face:1,vx:0,vy:0,attack:0,invuln:0,dash:0,lastHit:9,hit:0};
+      save.hero=C.hero(save).id;save.version=3;this.save=save;this.rng=random(save.seed+save.level*29);this.time=0;this.id=0;this.player={x:0,y:0,r:radiusAt(save.level),hp:stats(save).hp,face:1,vx:0,vy:0,attack:0,invuln:0,dash:0,lastHit:9,hit:0};
       this.enemies=[];this.effects=[];this.particles=[];this.texts=[];this.events=[];this.pets=[];this.bullets=[];this.warnings=[];this.targetId=null;this.moveTarget=null;this.cooldowns={dash:0,nova:0,storm:0,devour:0};this.combo=0;this.comboTimer=0;this.comboMax=0;this.spawnTimer=0;this.status='playing';this.shake=0;this.realm=FORMS[formIndex(save.level)].realm;this.bossSpawned=new Set();this.pendingPets=[];this.speedBonus=0;this.sweepAngle=0;this.worldMilestones=[];
       this.syncPets();this.populate(true);
     }
@@ -62,7 +63,7 @@
       if(up){this.player.r=radiusAt(s.level);this.player.hp=Math.min(stats(s).hp,this.player.hp/oldHp*stats(s).hp+up*1.3);this.emit('level',{from:before,to:s.level,amount:up});
         if(index>oldIndex){s.choices+=index-oldIndex;this.player.hp=stats(s).hp;this.realm=FORMS[index].realm;this.emit('evolve',{from:oldIndex,to:index});this.spawnTimer=0;}
         for(const pet of PETS)if(s.level>=pet.level)this.unlockPet(pet.id);
-        for(const skill of skills)if(before<skill.level&&s.level>=skill.level)this.emit('skill',{id:skill.id});
+        for(const skill of C.skillsFor(s))if(before<skill.level&&s.level>=skill.level)this.emit('skill',{id:skill.id});
       }return up;
     }
     evolve(choice){if(!['power','growth','vitality'].includes(choice)||!this.save.choices)return false;this.save.traits[choice]+=this.save.choices;this.save.choices=0;this.player.hp=stats(this.save).hp;return true;}
@@ -71,6 +72,7 @@
       const bodies=['mite','slime','rabbit','boar','wolf','treant','dragon','titan','celestial','cosmic'];const band=clamp(Math.floor(formIndex(level)*.83),0,bodies.length-1),body=options.body||bodies[Math.max(0,band-(this.rng()<.3?1:0))];
       const health=(18+level*3.2)*(options.boss?9:1),boss=options.boss||null;
       const e={id:++this.id,level,x:options.x??(this.player.x+Math.cos(angle)*d),y:options.y??(this.player.y+Math.sin(angle)*d),r,hp:health,maxHp:health,body,boss,name:options.name||({mite:'Луговой жучок',slime:'Дикий слизень',rabbit:'Мшистый прыгун',boar:'Клыкач',wolf:'Сумеречный охотник',treant:'Древень',dragon:'Дикий дракон',titan:'Исполин',celestial:'Небесный зверь',cosmic:'Звёздный странник'}[body]),color:options.color||(['#edb899','#b6c695','#a8cdaa','#e4ba94','#c7b4d9','#94b6a2','#c1acdf','#cbafa4','#aecfe1','#d5b6ec'][band]),angle:this.rng()*TAU,hit:0,attack:0,attackTimer:1.5+this.rng(),touchTimer:0,slow:0,wander:this.rng()*TAU,spawn:.7,pet:options.pet||null};
+      const artTier=options.boss?BOSSES.findIndex(b=>b.id===options.boss):C.tier(level),artSlot=options.boss?3:Math.floor(this.rng()*3),kind=C.ENEMIES[artTier];e.artTier=artTier;e.artSlot=artSlot;if(!options.boss){e.name=kind.names[artSlot];e.body=kind.bodies[artSlot];e.color=kind.color;}
       this.enemies.push(e);return e;
     }
     populate(first=false){const s=this.save,r=this.player.r;
@@ -88,7 +90,7 @@
       if(e.hp<=0)this.kill(e);else this.emit('hit');
     }
     kill(e){if(e.dead)return;e.dead=true;e.hp=0;this.save.kills++;this.combo=this.comboTimer>0?this.combo+1:1;this.comboMax=Math.max(this.comboMax,this.combo);this.comboTimer=3;
-      const oldRadius=this.player.r,bonus=1+Math.min(this.combo-1,12)*.025,quality=this.save.level<10?1:clamp((e.level/this.save.level)**1.7,.008,1.6),amount=(22+e.level*.24)*(1+e.level*.027)*(e.boss?4:1)*bonus*quality;this.save.essence+=Math.max(1,Math.ceil(e.level*.15));
+      const oldRadius=this.player.r,bonus=1+Math.min(this.combo-1,12)*.025,quality=this.save.level<10?1:clamp((e.level/this.save.level)**1.7,.008,1.6),amount=(22+e.level*.24)*(1+e.level*.021)*(e.boss?4:1)*bonus*quality;this.save.essence+=Math.max(1,Math.ceil(e.level*.15));
       this.effects.push({type:'absorb',x:e.x,y:e.y,r:e.r,life:.55,max:.55,color:e.color});this.burst(e.x,e.y,e.color,e.boss?40:13,Math.min(e.r,oldRadius*2));
       this.addText(e.x,e.y-e.r*1.4,'+'+Math.round(amount*stats(this.save).xp)+' XP','#fff6a8',true);this.emit('eat',{boss:!!e.boss});
       if(e.boss){this.save.bosses.push(e.boss);if(e.pet)this.unlockPet(e.pet);this.emit('bossDown',{name:e.name});this.shake=9;}
@@ -112,7 +114,7 @@
       if(p.lastHit>4)p.hp=Math.min(stats(s).hp,p.hp+stats(s).hp*.035*dt);
       let dx=input.x||0,dy=input.y||0;const manual=Math.hypot(dx,dy)>.05;if(manual){this.targetId=null;this.moveTarget=null;}
       const target=this.enemies.find(e=>e.id===this.targetId&&e.hp>0);if(!manual&&(target||this.moveTarget)){const to=target||this.moveTarget,tx=to.x-p.x,ty=to.y-p.y,d=Math.hypot(tx,ty)||1,stop=target?p.r*.55+target.r:p.r*.3;if(d>stop){dx=tx/d;dy=ty/d;}else if(!target)this.moveTarget=null;}
-      const length=Math.hypot(dx,dy);if(length>1){dx/=length;dy/=length;}const speed=r*(s.level<5?5.8:5.3);p.vx=dx;p.vy=dy;if(Math.abs(dx)>.03)p.face=dx>0?1:-1;
+      const length=Math.hypot(dx,dy);if(length>1){dx/=length;dy/=length;}const speed=r*(s.level<5?5.8:5.3)*C.hero(s).speed;p.vx=dx;p.vy=dy;if(Math.abs(dx)>.03)p.face=dx>0?1:-1;
       p.x+=(p.dash>0?p.dashX*speed*4:dx*speed)*dt;p.y+=(p.dash>0?p.dashY*speed*4:dy*speed)*dt;
       if(p.dash>0){this.effects.push({type:'ghost',x:p.x,y:p.y,r,life:.22,max:.22,color:FORMS[formIndex(s.level)].color});}
       this.spawnTimer-=dt;if(this.spawnTimer<=0){this.populate();this.spawnTimer=1.5;}
@@ -134,6 +136,9 @@
       this.particles=this.particles.filter(q=>q.life>0);this.effects=this.effects.filter(q=>q.life>0);this.texts=this.texts.filter(q=>q.life>0);
     }
   }
-  const API={FORMS,REALMS,PETS,BOSSES,skills,clamp,formIndex,radiusAt,xpNeeded,random,newSave,validSave,stats,World};
+  const formDescriptions=["Трава выше тебя. Выбирай посильную добычу и открывай силу своей стихии.","Твоя стихия пробудилась. Первое боевое умение уже доступно на Q.","Прежние хищники становятся добычей. Твои атаки теперь задевают целый сектор.","Лес остался внизу. Ты вырос, а твоя стихия обрела новую форму.","Деревья уже по колено. Открыта высшая способность на R.","Ты стал выше поселений. Впереди — каменные исполины и новые противники.","Земля дрожит от твоих шагов. Даже скалы становятся маленькими.","Горы больше не преграда. Перед тобой раскрывается мировой океан.","Теперь острова кажутся крошечными. Твоя стая охотится на морских колоссов.","Твой родной мир превратился в голубую планету. Он всё ещё здесь, только гораздо меньше.","Звёзды стали твоей добычей. Ты приближаешься к краю вселенной.","10 000 уровней позади. Остался последний противник — Сердце вселенной."];
+  const formFor=(s,i=formIndex(s.level))=>({...FORMS[i],description:formDescriptions[i],name:C.hero(s).names[i],body:C.hero(s).id,color:C.hero(s).color,stage:Math.min(3,Math.floor(i/3))});
+  const API={...C,FORMS,REALMS,PETS,BOSSES,skills:C.HEROES[0].skills,clamp,formIndex,formFor,radiusAt,xpNeeded,random,newSave,validSave,stats,World};
+  (typeof module!=='undefined'&&module.exports?require('./combat.js'):root.EvolutionCombat)(API);
   if(typeof module!=='undefined'&&module.exports)module.exports=API;else root.Evolution=API;
 })(typeof window!=='undefined'?window:globalThis);
