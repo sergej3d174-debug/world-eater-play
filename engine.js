@@ -46,7 +46,7 @@
   function random(seed){let x=seed>>>0;return()=>{x+=0x6D2B79F5;let t=Math.imul(x^x>>>15,1|x);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296;};}
   function newSave(ascensions=0,hero='dragon'){return {version:3,hero:C.hero(hero).id,level:1,xp:0,kills:0,essence:0,time:0,traits:{power:0,growth:0,vitality:0},pets:[],activePets:[],bosses:[],choices:0,seed:Date.now(),ascensions:clamp(ascensions,0,50),won:false};}
   function validSave(s){return !!(s&&[2,3].includes(s.version)&&(s.hero===undefined||C.HEROES.some(h=>h.id===s.hero))&&Number.isInteger(s.level)&&s.level>=1&&s.level<=10000&&Number.isFinite(s.xp)&&s.xp>=0&&s.xp<xpNeeded(s.level)+.001&&Number.isInteger(s.kills)&&s.kills>=0&&Number.isFinite(s.essence)&&s.essence>=0&&Number.isFinite(s.time)&&s.time>=0&&s.traits&&['power','growth','vitality'].every(k=>Number.isInteger(s.traits[k])&&s.traits[k]>=0&&s.traits[k]<=100)&&Array.isArray(s.pets)&&s.pets.every(id=>PETS.some(p=>p.id===id))&&new Set(s.pets).size===s.pets.length&&Array.isArray(s.activePets)&&s.activePets.length<=3&&new Set(s.activePets).size===s.activePets.length&&s.activePets.every(id=>s.pets.includes(id))&&Array.isArray(s.bosses)&&s.bosses.every(id=>BOSSES.some(b=>b.id===id))&&Number.isInteger(s.choices)&&s.choices>=0&&s.choices<=11&&Number.isFinite(s.seed)&&Number.isInteger(s.ascensions)&&s.ascensions>=0&&s.ascensions<=50&&typeof s.won==='boolean');}
-  function stats(s){const h=C.hero(s),protection=s.activePets.includes('rock')?.85:1;return {hp:(80+s.level*7)*(1+s.traits.vitality*.2)*h.hp,damage:(9+s.level*1.1)*(1+s.traits.power*.16)*h.damage,xp:1+(s.microComplete?.1:0)+s.traits.growth*.15+Math.min(s.ascensions,5)*.2+(s.activePets.includes('star')?.2:0),protection};}
+  function stats(s){const h=C.hero(s),protection=s.activePets.includes('rock')?.85:1;return {hp:(80+s.level*7)*(1+s.traits.vitality*.2)*h.hp,damage:(9+s.level*1.1)*(1+s.traits.power*.16)*h.damage,xp:1+(s.habitat?.relic?.05:0)+(s.microComplete?.1:0)+s.traits.growth*.15+Math.min(s.ascensions,5)*.2+(s.activePets.includes('star')?.2:0),protection};}
   class World{
     constructor(save){
       save.hero=C.hero(save).id;save.version=3;this.save=save;this.rng=random(save.seed+save.level*29);this.time=0;this.id=0;this.player={x:0,y:0,r:radiusAt(save.level),hp:stats(save).hp,face:1,vx:0,vy:0,attack:0,invuln:0,dash:0,lastHit:9,hit:0};
@@ -90,7 +90,7 @@
       if(e.hp<=0)this.kill(e);else this.emit('hit');
     }
     kill(e){if(e.dead)return;e.dead=true;e.hp=0;this.save.kills++;this.combo=this.comboTimer>0?this.combo+1:1;this.comboMax=Math.max(this.comboMax,this.combo);this.comboTimer=3;
-      const oldRadius=this.player.r,bonus=1+Math.min(this.combo-1,12)*.025,quality=this.save.level<10?1:clamp((e.level/this.save.level)**1.7,.008,1.6),amount=(22+e.level*.24)*(1+e.level*.021)*(e.boss?4:1)*bonus*quality;this.save.essence+=Math.max(1,Math.ceil(e.level*.15));
+      const oldRadius=this.player.r,bonus=1+Math.min(this.combo-1,12)*.025,quality=this.save.level<10?1:clamp((e.level/this.save.level)**1.7,.008,1.6),amount=(22+e.level*.24)*(1+e.level*.021)*(e.boss?4:1)*bonus*quality*(API.progressionScale?API.progressionScale(this.save.level,this.save):1);this.save.essence+=Math.max(1,Math.ceil(e.level*.15));
       this.effects.push({type:'absorb',x:e.x,y:e.y,r:e.r,life:.55,max:.55,color:e.color});this.burst(e.x,e.y,e.color,e.boss?40:13,Math.min(e.r,oldRadius*2));
       this.addText(e.x,e.y-e.r*1.4,'+'+Math.round(amount*stats(this.save).xp)+' XP','#fff6a8',true);this.emit('eat',{boss:!!e.boss});
       if(e.boss){this.save.bosses.push(e.boss);if(e.pet)this.unlockPet(e.pet);this.emit('bossDown',{name:e.name});this.shake=9;}
@@ -123,15 +123,15 @@
       for(let i=0;i<this.pets.length;i++){const pet=this.pets[i],def=PETS.find(q=>q.id===pet.id),a=this.time*.7+i*TAU/Math.max(1,this.pets.length),px=p.x+Math.cos(a)*r*1.8,py=p.y+Math.sin(a)*r*1.1;pet.x+=(px-pet.x)*Math.min(1,dt*6);pet.y+=(py-pet.y)*Math.min(1,dt*6);pet.timer-=dt;if(pet.timer<=0){const e=this.nearest(pet.x,pet.y,r*(pet.id==='dragon'?8:4),e=>e.level<=s.level*1.6);if(e){pet.timer=.85;this.effects.push({type:'link',x:pet.x,y:pet.y,x2:e.x,y2:e.y,r:r*.1,life:.2,max:.2,color:def.color});this.hit(e,stats(s).damage*def.power,'pet');}}}
       for(const e of this.enemies){if(this.save.choices>0)break;if(e.hp<=0)continue;e.spawn=Math.max(0,e.spawn-dt);e.hit=Math.max(0,e.hit-dt);e.slow=Math.max(0,e.slow-dt);e.touchTimer=Math.max(0,e.touchTimer-dt);e.attackTimer-=dt;
         const ex=p.x-e.x,ey=p.y-e.y,d=Math.hypot(ex,ey)||1,engaged=!e.boss||e.id===this.targetId||e.hp<e.maxHp*.98||e.level<=s.level*1.4,aggro=e.boss?(engaged?r*10:0):e.r*5+r*2;let vx=0,vy=0;const edible=e.level<s.level*.65;
-        if(d<aggro){const direction=edible&&!e.boss?-1:1;vx=ex/d*direction;vy=ey/d*direction;if(edible&&e.level<s.level*.18){vx*=.5;vy*=.5;}}
+        if(d<aggro){const direction=edible&&!e.boss&&!e.nestId?-1:1;vx=ex/d*direction;vy=ey/d*direction;if(edible&&e.level<s.level*.18){vx*=.5;vy*=.5;}}
         else{vx=Math.cos(this.time*.3+e.wander)*.35;vy=Math.sin(this.time*.4+e.wander)*.35;}
         const speed=Math.min(r*4.0,Math.max(e.r*2.8,r*.45))*(e.slow>0?.35:1);e.x+=vx*speed*dt;e.y+=vy*speed*dt;e.angle=vx<0?-1:1;
-        if(d<r*.7+e.r*.75&&e.touchTimer<=0){if(e.level<=s.level*.35&&!e.boss){this.kill(e);}else{this.hurt((4+e.level*.55)*(e.boss?2.1:1));e.touchTimer=.9;}}
+        if(d<r*.7+e.r*.75&&e.touchTimer<=0){if(e.level<=s.level*.35&&!e.boss&&!e.nestId){this.kill(e);}else{this.hurt((4+e.level*.55)*(e.boss?2.1:1));e.touchTimer=.9;}}
         if(e.boss&&engaged&&d<r*18&&e.attackTimer<=0){e.attackTimer=e.hp<e.maxHp*.5?1.8:2.7;const blastR=Math.min(e.r*1.6,r*3);this.warnings.push({x:p.x,y:p.y,r:blastR,life:1.1,max:1.1,damage:(8+e.level*.6)*2});this.emit('bossAttack');}
       }
       for(const w of this.warnings){w.life-=dt;if(w.life<=0){if(Math.hypot(w.x-p.x,w.y-p.y)<w.r+r*.65)this.hurt(w.damage);this.effects.push({type:'nova',x:w.x,y:w.y,r:w.r,life:.5,max:.5,color:'#ff927d'});this.burst(w.x,w.y,'#ff9e84',18,w.r);}}
       this.warnings=this.warnings.filter(w=>w.life>0);
-      this.enemies=this.enemies.filter(e=>e.hp>0&&(e.boss||Math.hypot(e.x-p.x,e.y-p.y)<p.r*35)&&e.r/p.r>.0001);
+      this.enemies=this.enemies.filter(e=>e.hp>0&&(e.boss||e.nestId||e.habitatPredator||Math.hypot(e.x-p.x,e.y-p.y)<p.r*35)&&e.r/p.r>.0001);
       for(const q of this.particles){q.life-=dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=1-dt*3;q.vy*=1-dt*3;}for(const q of this.effects)q.life-=dt;for(const q of this.texts){q.life-=dt;q.y-=q.scale*dt*.7;}
       this.particles=this.particles.filter(q=>q.life>0);this.effects=this.effects.filter(q=>q.life>0);this.texts=this.texts.filter(q=>q.life>0);
     }

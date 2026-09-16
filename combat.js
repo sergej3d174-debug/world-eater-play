@@ -33,7 +33,7 @@ proto.useSkill=function(id){
  if(id==='devour'){
    if(h.id==='dragon'){p.tempest=5;p.tempestTick=0;this.fx('stormEye',p.x,p.y,r*7,col,1.1);}
    if(h.id==='fox'){this.areaHit(p.x,p.y,r*6.5,damage*5,{burn:4,push:r*1.2});this.fx('sunburst',p.x,p.y,r*6.5,col,1.25);this.shake=7;}
-   if(h.id==='void'){for(const e of this.enemies){if(e.hp<=0||Math.hypot(e.x-p.x,e.y-p.y)>r*8+e.r)continue;if(e.level<s.level*.72&&!e.boss)this.kill(e);else this.hit(e,damage*4.4,'nova');}p.hp=Math.min(E.stats(s).hp,p.hp+E.stats(s).hp*.2);this.fx('devour',p.x,p.y,r*8,col,1.3);this.shake=6;}
+   if(h.id==='void'){for(const e of this.enemies){if(e.hp<=0||Math.hypot(e.x-p.x,e.y-p.y)>r*8+e.r)continue;if(e.level<s.level*.72&&!e.boss&&!e.nestId)this.kill(e);else this.hit(e,damage*4.4,'nova');}p.hp=Math.min(E.stats(s).hp,p.hp+E.stats(s).hp*.2);this.fx('devour',p.x,p.y,r*8,col,1.3);this.shake=6;}
    if(h.id==='titan'){for(let i=0;i<3;i++)this.skillAreas.push({kind:'quake',x:p.x,y:p.y,r:r*(4+i),delay:i*.65,life:.1,damage:damage*3,color:col,fired:false});this.shake=7;}
  }
  return true;
